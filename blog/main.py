@@ -2,6 +2,7 @@ from fastapi import FastAPI, Depends, responses, status, Response, HTTPException
 from . import schemas, models
 from .database import SessionLocal, engine
 from sqlalchemy.orm import Session
+from typing import List
 
 app = FastAPI()
 
@@ -30,15 +31,20 @@ def destroy(id, db: Session = Depends(get_db)):
     return 'done'
 
 @app.put('/blog/{id}', status_code=status.HTTP_202_ACCEPTED)
-def update(id, request: schemas.Blog, db: Session = Depends(get_db)):
-    pass
+def update(id, request: schemas.ShowBlog, db: Session = Depends(get_db)):
+    blog = db.query(models.Blog).filter(models.Blog.id == id)
+    if not blog.first():
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,detail=f"not found id {id}")
+    blog.update(request.dict())#({'title': request.title, 'body': request.body})
+    db.commit()
+    return 'updated'
 
-@app.get('/blog', status_code=status.HTTP_201_CREATED)
+@app.get('/blog', status_code=status.HTTP_201_CREATED, response_model=List[schemas.ShowBlog])
 def all(db: Session = Depends(get_db)):
     blogs = db.query(models.Blog).all()
     return blogs
 
-@app.get('/blogs/{id}', status_code=200)
+@app.get('/blog/{id}', status_code=200, response_model=schemas.ShowBlog)
 def show(id, response: Response, db: Session = Depends(get_db)):
     blog = db.query(models.Blog).filter(models.Blog.id == id).first()
     if not blog:
